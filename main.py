@@ -2,50 +2,118 @@ import streamlit as st
 import pandas as pd
 import altair as alt
 
-st.set_page_config(page_title="MBTI 국가 분석", layout="wide")
+# ------------------------------
+# 앱 기본 설정
+# ------------------------------
+st.set_page_config(
+    page_title="시간대별 교통량 분석 대시보드",
+    layout="wide",
+    page_icon="🚗",
+)
 
-st.title("🌍 MBTI 유형별 국가 분석 대시보드")
+st.title("🚗 시간대별 교통량 분석 대시보드")
+st.markdown("교통량 데이터를 시간대별로 분석하고 시각화하는 대시보드입니다.")
 
-st.markdown("MBTI 유형별로 어떤 국가에서 높은 비율을 차지하는지를 시각적으로 분석합니다.")
-st.markdown("CSV 파일을 업로드해주세요. (예: countriesMBTI_16types.csv)")
+# ------------------------------
+# 데이터 불러오기
+# ------------------------------
+@st.cache_data
+def load_data():
+    df = pd.read_csv("traffic_processed.csv", encoding="utf-8")
+    df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
+    df["hour"] = df["datetime"].dt.hour
+    df["weekday"] = df["datetime"].dt.day_name(locale="ko_KR")  # 요일명
+    return df
 
-# CSV 업로드
-uploaded_file = st.file_uploader("CSV 파일 업로드", type=["csv"])
+df = load_data()
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.success("✅ 데이터가 성공적으로 업로드되었습니다.")
+# ------------------------------
+# 사이드바 설정
+# ------------------------------
+st.sidebar.header("🔍 필터 설정")
 
-    if st.checkbox("데이터 미리보기"):
-        st.dataframe(df)
+unique_sites = df["지점명"].unique()
+selected_site = st.sidebar.selectbox("지점 선택", ["전체"] + list(unique_sites))
 
-    # MBTI 유형 컬럼 추출
-    types = [col for col in df.columns if col not in ["Country", "Total"]]
-    selected_type = st.selectbox("분석할 MBTI 유형을 선택하세요:", types)
+direction = st.sidebar.selectbox("유입/유출 선택", ["전체", "유입", "유출"])
 
-    top_n = st.slider("표시할 상위 국가 수", 5, 20, 10)
+weekday_options = ["전체"] + df["weekday"].dropna().unique().tolist()
+selected_weekday = st.sidebar.selectbox("요일 선택", weekday_options)
 
-    # 선택한 유형 기준 정렬
-    top_df = df.sort_values(by=selected_type, ascending=False).head(int(top_n))
+# ------------------------------
+# 필터 적용
+# ------------------------------
+filtered_df = df.copy()
 
-    st.subheader(f"🌟 {selected_type} 유형 비율이 높은 국가 TOP {top_n}")
+if selected_site != "전체":
+    filtered_df = filtered_df[filtered_df["지점명"] == selected_site]
 
-    # Altair 시각화
+if direction != "전체":
+    filtered_df = filtered_df[filtered_df["유입/유출"] == direction]
+
+if selected_weekday != "전체":
+    filtered_df = filtered_df[filtered_df["weekday"] == selected_weekday]
+
+# ------------------------------
+# 데이터 집계 (시간대별 평균 교통량)
+# ------------------------------
+hourly_df = (
+    filtered_df.groupby("hour")["교통량"]
+    .mean()
+    .reset_index()
+    .sort_values("hour")
+)
+
+# ------------------------------
+# Altair 시각화
+# ------------------------------
+st.subheader("⏰ 시간대별 평균 교통량")
+
+if len(hourly_df) > 0:
     chart = (
-        alt.Chart(top_df)
-        .mark_bar(cornerRadiusTopLeft=6, cornerRadiusTopRight=6)
+        alt.Chart(hourly_df)
+        .mark_line(point=True, interpolate="monotone", color="#0072B2")
         .encode(
-            x=alt.X(selected_type, title=f"{selected_type} 비율(%)"),
-            y=alt.Y("Country", sort="-x", title="국가"),
-            color=alt.Color(selected_type, scale=alt.Scale(scheme="tealblues")),
-            tooltip=["Country", selected_type]
+            x=alt.X("hour:O", title="시간대 (시)", axis=alt.Axis(labelAngle=0)),
+            y=alt.Y("교통량:Q", title="평균 교통량"),
+            tooltip=["hour", "교통량"]
         )
-        .properties(height=500)
+        .properties(
+            width=900,
+            height=400,
+            title=f"{selected_site if selected_site != '전체' else '전체 지점'} - 시간대별 평균 교통량"
+        )
     )
 
-    st.altair_chart(chart, use_container_width=True)
-    st.markdown("#### 📊 상세 데이터")
-    st.dataframe(top_df.reset_index(drop=True))
+    bar = (
+        alt.Chart(hourly_df)
+        .mark_bar(color="#56B4E9", opacity=0.6)
+        .encode(
+            x=alt.X("hour:O", title="시간대 (시)"),
+            y=alt.Y("교통량:Q", title="평균 교통량"),
+            tooltip=["hour", "교통량"]
+        )
+        .properties(width=900, height=400)
+    )
 
+    st.altair_chart(chart + bar, use_container_width=True)
 else:
-    st.warning("⚠️ CSV 파일을 업로드해야 분석을 시작할 수 있습니다.")
+    st.warning("선택한 조건에 해당하는 데이터가 없습니다.")
+
+# ------------------------------
+# 상세 데이터 테이블
+# ------------------------------
+with st.expander("📊 시간대별 데이터 상세 보기"):
+    st.dataframe(hourly_df)
+
+# ------------------------------
+# 주석 및 안내
+# ------------------------------
+st.markdown(
+    """
+    ---
+    **설명**
+    - 상단 그래프는 선택한 지점 및 조건에 따른 시간대별 평균 교통량을 나타냅니다.
+    - 데이터는 사전에 전처리된 `traffic_processed.csv`를 기반으로 합니다.
+    """
+)
