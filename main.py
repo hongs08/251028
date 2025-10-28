@@ -31,8 +31,21 @@ def load_data(file):
     df = pd.read_csv(file, encoding="utf-8")
     df["datetime"] = pd.to_datetime(df["datetime"], errors="coerce")
     df["hour"] = df["datetime"].dt.hour
-    df["weekday"] = df["datetime"].dt.day_name(locale="ko_KR")  # 요일명
+    
+    # 영어 요일명을 한글로 변환
+    weekday_map = {
+        "Monday": "월요일",
+        "Tuesday": "화요일",
+        "Wednesday": "수요일",
+        "Thursday": "목요일",
+        "Friday": "금요일",
+        "Saturday": "토요일",
+        "Sunday": "일요일",
+    }
+    df["weekday"] = df["datetime"].dt.day_name().map(weekday_map)
+    
     return df
+
 
 # ------------------------------
 # 파일 업로드 여부 확인
