@@ -54,17 +54,20 @@ if uploaded_file is not None:
     df = load_data(uploaded_file)
 
     # ------------------------------
-    # 사이드바 필터 설정
+    # 사이드바 설정
     # ------------------------------
     st.sidebar.header("🔍 필터 설정")
-
+    
     unique_sites = df["지점명"].unique()
     selected_site = st.sidebar.selectbox("지점 선택", ["전체"] + list(unique_sites))
-
+    
     direction = st.sidebar.selectbox("유입/유출 선택", ["전체", "유입", "유출"])
-
-    weekday_options = ["전체"] + df["weekday"].dropna().unique().tolist()
+    
+    # 요일 고정 순서로 설정 (데이터에 없더라도 표시)
+    weekday_order = ["월요일", "화요일", "수요일", "목요일", "금요일", "토요일", "일요일"]
+    weekday_options = ["전체"] + weekday_order
     selected_weekday = st.sidebar.selectbox("요일 선택", weekday_options)
+    
 
     # ------------------------------
     # 필터 적용
