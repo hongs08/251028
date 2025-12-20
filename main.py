@@ -206,7 +206,7 @@ if 'df' not in st.session_state:
 col1, col2 = st.columns([0.3, 0.7])
 
 with col1:
-    st.subheader("📊 1단계: 교통 데이터 생성")
+    st.markdown("📊 1단계: 교통 데이터 생성")
     if st.button("데이터 생성", key="generate_data_button") or st.session_state.df is None:
         with st.spinner(f"지정된 기간({days}일)의 교통 데이터를 생성 중입니다..."):
             try:
