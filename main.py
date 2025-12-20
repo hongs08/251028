@@ -5,6 +5,48 @@ import os
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt # Import matplotlib for plt.close()
+import matplotlib as mpl
+import platform
+import matplotlib.font_manager as fm
+import requests
+import tempfile
+
+# --- 한글 폰트 설정: 시스템 폰트 우선, 없으면 NanumGothic을 런타임에 다운로드하여 등록 ---
+def set_korean_font():
+    preferred = ["Malgun Gothic", "Apple SD Gothic Neo", "AppleGothic", "NanumGothic", "NanumSquare"]
+    available = {f.name for f in fm.fontManager.ttflist}
+    # 시스템에 이미 있는 폰트 사용
+    for name in preferred:
+        if name in available:
+            mpl.rcParams['font.family'] = name
+            mpl.rcParams['axes.unicode_minus'] = False
+            return
+
+    # 없으면 NanumGothic-Regular.ttf 를 다운로드하여 추가 시도
+    try:
+        url = "https://github.com/google/fonts/raw/main/ofl/nanumgothic/NanumGothic-Regular.ttf"
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            tmp = tempfile.gettempdir()
+            ttf_path = os.path.join(tmp, "NanumGothic-Regular.ttf")
+            with open(ttf_path, "wb") as f:
+                f.write(r.content)
+            fm.fontManager.addfont(ttf_path)
+            # 폰트 매니저 재구성 (필요시)
+            fm._rebuild()
+            mpl.rcParams['font.family'] = "NanumGothic"
+            mpl.rcParams['axes.unicode_minus'] = False
+            return
+    except Exception:
+        pass
+
+    # 모든 시도 실패 시: 기본 폰트에 unicode_minus만 설정
+    mpl.rcParams['axes.unicode_minus'] = False
+
+# 실행
+set_korean_font()
+# -----------------------------------------------
+
 import tensorflow as tf # Import tensorflow for model summary
 
 # 사용자 정의 모듈 import
@@ -183,7 +225,6 @@ with col2:
         st.success(f"총 {len(st.session_state.df)}개의 교통 데이터 샘플이 준비되었습니다.")
     else:
         st.info("좌측 사이드바에서 설정을 조절하고, '데이터 생성' 버튼을 눌러 작업을 시작하세요.")
-
 
 # 2. 데이터 탐색 및 시각화 섹션
 st.subheader("📈 2단계: 데이터 탐색적 분석 (EDA) 및 시각화")
